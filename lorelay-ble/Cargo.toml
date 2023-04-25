@@ -1,0 +1,25 @@
+[package]
+name = "lorelay-ble"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+defmt.workspace = true
+defmt-rtt.workspace = true
+futures.workspace = true
+cortex-m.workspace = true
+cortex-m-rt.workspace = true
+panic-probe.workspace = true
+embassy-time.workspace = true
+embassy-executor.workspace = true
+embassy-sync.workspace = true
+embassy-macros.workspace = true
+nrf-softdevice = { git = "https://github.com/embassy-rs/nrf-softdevice", version = "*", features = ["nightly", "defmt", "nrf52840", "s140", "ble-peripheral", "ble-central",
+    "critical-section-impl", "ble-gatt-server"] }
+nrf-softdevice-s140 = { git = "https://github.com/embassy-rs/nrf-softdevice", version = "*" }
+[dependencies.embassy-nrf]
+version = "*"
+git = "https://github.com/embassy-rs/embassy"
+features = ["defmt", "nrf52840", "time-driver-rtc1", "gpiote", "nightly"]
