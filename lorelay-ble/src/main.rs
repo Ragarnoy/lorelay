@@ -1,5 +1,3 @@
-
-
 //! This example showcases how to notify a connected client via BLE of new SAADC data.
 //! Using, for example, nRF-Connect on iOS/Android we can connect to the device "HelloRust"
 //! and see the battery level characteristic getting updated in real-time.
@@ -222,8 +220,21 @@ async fn main(spawner: Spawner) {
             },
             ServerEvent::Custom(e) => match e {
                 CustomServiceEvent::CustomValueWrite(value) => {
-                    let string: &str = CStr::from_bytes_until_nul(&value).unwrap().to_str().unwrap();
-                    info!("custom value written: {}", string);
+                    if let Ok(cstr) = CStr::from_bytes_until_nul(&value) {
+                        if let Ok(ret) = cstr.to_str() {
+                            info!("custom value written: {}", ret.clone());
+                            ret
+                        } else {
+                            warn!("invalid utf8");
+                            "invalid utf8"
+                        }
+                    }
+                    else {
+                        warn!("invalid utf8");
+                        "invalid utf8"
+                    };
+
+
                     custom_value = value[0] as i16;
                     unsafe {
                         let flag = LED_FLAG.get_mut();
@@ -245,9 +256,7 @@ async fn main(spawner: Spawner) {
                 info!("ADC encountered an error and stopped!")
             }
             Either::Right((res, _)) => {
-                if let Err(e) = res {
-                    info!("gatt_server run exited with error: {:?}", e);
-                }
+                info!("GATT server finished with result {:?}", res);
             }
         };
     }

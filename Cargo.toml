@@ -1,5 +1,6 @@
 [workspace]
 members = ["lorelay-ble", "lorelay-lr"]
+default-members = ["lorelay-ble"]
 
 [workspace.package]
 version = "0.1.0"
