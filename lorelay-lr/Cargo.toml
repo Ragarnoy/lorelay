@@ -12,6 +12,16 @@ cortex-m.workspace = true
 cortex-m-rt.workspace = true
 panic-probe.workspace = true
 embassy-time.workspace = true
-embassy-executor.workspace = true
+embassy-executor = { workspace = true, features = ["arch-cortex-m", "executor-thread", "defmt", "integrated-timers"] }
 embassy-sync.workspace = true
 embassy-macros.workspace = true
+heapless.workspace = true
+lora-phy = { version = "1" }
+[dependencies.embassy-stm32]
+version = "*"
+git = "https://github.com/embassy-rs/embassy"
+features = ["nightly", "unstable-traits", "defmt", "stm32wl55jc-cm4", "time-driver-any", "memory-x", "unstable-pac", "exti"]
+[dependencies.embassy-lora]
+version = "*"
+git = "https://github.com/embassy-rs/embassy"
+features = ["stm32wl", "time", "defmt"]
