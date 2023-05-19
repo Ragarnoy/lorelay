@@ -6,18 +6,18 @@
 #![feature(type_alias_impl_trait, async_fn_in_trait)]
 #![allow(incomplete_features)]
 
-use alloc::vec::Vec;
 use defmt::{error, info};
 use embassy_executor::Spawner;
 use embassy_lora::iv::Stm32wlInterfaceVariant;
 use embassy_stm32::gpio::{AnyPin, Input, Level, Output, Pin, Pull, Speed};
 use embassy_stm32::spi::Spi;
 use embassy_stm32::{interrupt, into_ref, Peripheral};
-use embassy_stm32::peripherals::{DMA1_CH1, DMA1_CH2, PA0, PB11, PB15, PB9};
+use embassy_stm32::exti::ExtiInput;
+use embassy_stm32::peripherals::{DMA1_CH1, DMA1_CH2, PA1, PB11, PB15, PB9};
 use embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex;
 use embassy_sync::signal::Signal;
 use embassy_time::{Delay, Duration, Timer};
-use heapless::Vec;
+use heapless::{String};
 use lora_phy::mod_params::*;
 use lora_phy::sx1261_2::SX1261_2;
 use lora_phy::LoRa;
@@ -27,7 +27,7 @@ type BlueLed = Output<'static, PB15>;
 type GreenLed = Output<'static, PB9>;
 type RedLed = Output<'static, PB11>;
 
-type Button1 = Input<'static, PA0>;
+type Button1 = Input<'static, PA1>;
 // type Button2 = Input<'static, PA1>;
 // type Button3 = Input<'static, PC6>;
 
@@ -86,12 +86,11 @@ async fn red_led_handler(mut led: RedLed) {
 }
 
 #[embassy_executor::task]
-async fn button_press(button: Button1) {
+async fn button_press(mut button_exti: ExtiInput<'static, PA1>) {
     loop {
-        if button.is_low() {
-            info!("Button pressed");
-            BUTTON_PRESS_SIGNAL.signal(());
-        }
+        button_exti.wait_for_rising_edge().await;
+        info!("Button pressed");
+        BUTTON_PRESS_SIGNAL.signal(());
     }
 }
 
@@ -99,7 +98,6 @@ async fn button_press(button: Button1) {
 #[embassy_executor::task]
 async fn rxtx_lora_messages(mut lora: LoraRadio) {
     let mut rx_buffer = [0u8; 100];
-    // let mut delay = Delay;
 
     info!("Starting RX/TX");
     let mdltn_params = {
@@ -126,7 +124,7 @@ async fn rxtx_lora_messages(mut lora: LoraRadio) {
             }
         }
     };
-    Timer::after(Duration::from_secs(6)).await;
+    Timer::after(Duration::from_secs(5)).await;
 
     match lora.prepare_for_tx(&mdltn_params, 20, false).await {
         Ok(()) => {
@@ -181,15 +179,15 @@ async fn rxtx_lora_messages(mut lora: LoraRadio) {
 
         info!("Starting RXTX loop cycle");
         match lora.rx(&rx_pkt_params, &mut rx_buffer).await {
+            Err(err) => info!("rx unsuccessful = {}", err),
             Ok((received_len, _rx_pkt_status)) => {
-                if (received_len <= 20)
-                    && (rx_buffer.starts_with("hello".as_bytes()))
-                {
-                    info!("Received message: {}", core::str::from_utf8(&rx_buffer).unwrap());
-                    Timer::after(Duration::from_secs(1)).await;
+                if received_len <= 20 && rx_buffer.starts_with("hello".as_bytes()) {
 
+                    info!("Received message: {}", core::str::from_utf8(&rx_buffer).unwrap());
                     // Signal the LED blink task to blink the LED
                     LED_GREEN_BLINK_SIGNAL.signal(());
+                    Timer::after(Duration::from_secs(1)).await;
+
                     match lora.prepare_for_tx(&mdltn_params, 20, false).await {
                         Ok(()) => {}
                         Err(err) => {
@@ -202,23 +200,21 @@ async fn rxtx_lora_messages(mut lora: LoraRadio) {
                     let (hello, number_str) = rx_buffer.split_at(rx_buffer.iter().position(|&c| c == b' ').unwrap() + 1);
 
                     // Parse the number, increment it, and convert it back to a string
-                    let number = core::ffi::CStr::from_bytes_until_nul(number_str).unwrap().to_str().unwrap().parse::<u8>().unwrap() + 1;
-                    let mut new_number_str: Vec<u8, 2> = Vec::new(); // a Vec with fixed capacity of 2
-                    match number {
-                        0..=9 => {
-                            new_number_str.push(b'0' + number).unwrap();
-                        }
-                        10..=99 => {
-                            new_number_str.extend_from_slice(&[b'0' + (number / 10), b'0' + (number % 10)]).unwrap();
-                        }
-                        _ => unreachable!(),  // The number should never be 100 or more
+                    let number = core::ffi::CStr::from_bytes_until_nul(number_str).unwrap().to_str().unwrap().parse::<u32>().unwrap() + 1;
+                    let mut new_number_str: String<2> = String::new();
+                    if number >= 100 {
+                        unreachable!("The number should never be 100 or more");
                     }
+                    if number >= 10 {
+                        new_number_str.push(char::from_digit(number / 10, 10).unwrap()).unwrap();
+                    }
+                    new_number_str.push(char::from_digit(number % 10, 10).unwrap()).unwrap();
                     // Create a new array for the new message
                     let mut new_message = [0u8; 100];
                     // Copy the "Hello " part into the new array
                     new_message[..hello.len()].copy_from_slice(hello);
                     // Copy the new number into the new array
-                    new_message[hello.len()..hello.len() + new_number_str.len()].copy_from_slice(&new_number_str);
+                    new_message[hello.len()..hello.len() + new_number_str.len()].copy_from_slice(new_number_str.as_bytes());
                     // The length of the new message
                     let new_message_len = hello.len() + new_number_str.len();
 
@@ -238,7 +234,6 @@ async fn rxtx_lora_messages(mut lora: LoraRadio) {
                     info!("rx unknown packet");
                 }
             }
-            Err(err) => info!("rx unsuccessful = {}", err),
         }
         match lora
             .prepare_for_rx(&mdltn_params, &rx_pkt_params, None, true, false, 0, 0x00ffffffu32)
@@ -270,7 +265,7 @@ async fn main(spawner: Spawner) {
     let iv = Stm32wlInterfaceVariant::new(irq, None, Some(ctrl2)).unwrap();
 
     let mut delay = Delay;
-    info!("Starting LoRa P2P send example");
+    info!("Starting LoRa P3P send example");
 
     let lora = {
         match LoRa::new(SX1261_2::new(BoardType::Stm32wlSx1262, spi, iv), false, &mut delay).await {
@@ -285,13 +280,12 @@ async fn main(spawner: Spawner) {
     let blue_led: BlueLed = Output::new(p.PB15, Level::Low, Speed::Low);
     let green_led: GreenLed = Output::new(p.PB9, Level::Low, Speed::Low);
     let red_led: RedLed = Output::new(p.PB11, Level::Low, Speed::Low);
-    let button: Button1 = Input::new(p.PA0, Pull::Up);
+    let button: Button1 = Input::new(p.PA1, Pull::Up);
+    let exti = ExtiInput::new(button, p.EXTI1);
 
     spawner.spawn(blue_led_handler(blue_led)).expect("spawner failed");
     spawner.spawn(green_led_handler(green_led)).expect("spawner failed");
     spawner.spawn(red_led_handler(red_led)).expect("spawner failed");
-    // spawner.spawn(button_press(button)).expect("spawner failed");
+    spawner.spawn(button_press(exti)).expect("spawner failed");
     spawner.spawn(rxtx_lora_messages(lora)).expect("spawner failed");
-
 }
-

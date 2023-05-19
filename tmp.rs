@@ -1,4 +1,4 @@
-/*#![no_std]
+#![no_std]
 #![no_main]
 #![feature(type_alias_impl_trait)]
 
@@ -70,4 +70,3 @@ async fn main(spawner: Spawner) {
         info!("Button 2 released!");
     }
 }
-*/

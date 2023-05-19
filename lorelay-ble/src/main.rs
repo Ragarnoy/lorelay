@@ -238,7 +238,7 @@ async fn main(spawner: Spawner) {
                     custom_value = value[0] as i16;
                     unsafe {
                         let flag = LED_FLAG.get_mut();
-                        *flag = !*flag;
+                        *flag = true;
                     }
                 }
             },
