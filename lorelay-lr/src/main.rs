@@ -6,26 +6,26 @@
 #![feature(type_alias_impl_trait, async_fn_in_trait)]
 #![allow(incomplete_features)]
 
-mod led_handling;
 mod button_handling;
+mod led_handling;
 mod lora;
 
-use defmt::{info};
+use crate::button_handling::{Button1, Button3};
+use button_handling::Button2;
+use defmt::info;
 use embassy_executor::Spawner;
 use embassy_lora::iv::Stm32wlInterfaceVariant;
+use embassy_stm32::exti::ExtiInput;
 use embassy_stm32::gpio::{AnyPin, Input, Level, Output, Pin, Pull, Speed};
+use embassy_stm32::peripherals::{DMA1_CH1, DMA1_CH2};
 use embassy_stm32::spi::Spi;
 use embassy_stm32::{interrupt, into_ref, Peripheral};
-use embassy_stm32::exti::ExtiInput;
-use embassy_stm32::peripherals::{DMA1_CH1, DMA1_CH2};
-use embassy_time::{Delay};
+use embassy_time::Delay;
+use led_handling::{BlueLed, GreenLed, RedLed};
 use lora_phy::mod_params::*;
 use lora_phy::sx1261_2::SX1261_2;
 use lora_phy::LoRa;
 use {defmt_rtt as _, panic_probe as _};
-use button_handling::Button2;
-use led_handling::{BlueLed, GreenLed, RedLed};
-use crate::button_handling::{Button1, Button3};
 
 type SpiLora = Spi<'static, embassy_stm32::peripherals::SUBGHZSPI, DMA1_CH1, DMA1_CH2>;
 type Stm32wlIv = Stm32wlInterfaceVariant<'static, Output<'static, AnyPin>>;
@@ -50,7 +50,13 @@ async fn main(spawner: Spawner) {
     info!("Starting LoRa P3P send example");
 
     let lora = {
-        match LoRa::new(SX1261_2::new(BoardType::Stm32wlSx1262, spi, iv), false, &mut delay).await {
+        match LoRa::new(
+            SX1261_2::new(BoardType::Stm32wlSx1262, spi, iv),
+            false,
+            &mut delay,
+        )
+        .await
+        {
             Ok(l) => l,
             Err(err) => {
                 info!("Radio error = {}", err);
@@ -62,18 +68,34 @@ async fn main(spawner: Spawner) {
     let blue_led: BlueLed = Output::new(p.PB15, Level::Low, Speed::Low);
     let green_led: GreenLed = Output::new(p.PB9, Level::Low, Speed::Low);
     let red_led: RedLed = Output::new(p.PB11, Level::Low, Speed::Low);
+
     let button_1: Button1 = Input::new(p.PA0, Pull::Up);
     let button_2: Button2 = Input::new(p.PA1, Pull::Up);
     let button_3: Button3 = Input::new(p.PC6, Pull::Up);
+
     let exti_1 = ExtiInput::new(button_1, p.EXTI0);
     let exti_2 = ExtiInput::new(button_2, p.EXTI1);
-    let exti_3 = ExtiInput::new(button_3, p.EXTI6);
+    let exti_3 = ExtiInput::new(button_3, p.EXTI6); // does not work for some reason
 
-    spawner.spawn(led_handling::blue_led_handler(blue_led)).expect("spawner failed");
-    spawner.spawn(led_handling::green_led_handler(green_led)).expect("spawner failed");
-    spawner.spawn(led_handling::red_led_handler(red_led)).expect("spawner failed");
-    spawner.spawn(button_handling::button_1_press(exti_1)).expect("spawner failed");
-    spawner.spawn(button_handling::button_2_press(exti_2)).expect("spawner failed");
-    spawner.spawn(button_handling::button_3_press(exti_3)).expect("spawner failed");
-    spawner.spawn(lora::rxtx_lora_messages(lora)).expect("spawner failed");
+    spawner
+        .spawn(led_handling::blue_led_handler(blue_led))
+        .expect("spawner failed");
+    spawner
+        .spawn(led_handling::green_led_handler(green_led))
+        .expect("spawner failed");
+    spawner
+        .spawn(led_handling::red_led_handler(red_led))
+        .expect("spawner failed");
+    spawner
+        .spawn(button_handling::button_1_press(exti_1))
+        .expect("spawner failed");
+    spawner
+        .spawn(button_handling::button_2_press(exti_2))
+        .expect("spawner failed");
+    spawner
+        .spawn(button_handling::button_3_press(exti_3))
+        .expect("spawner failed");
+    spawner
+        .spawn(lora::rxtx_lora_messages(lora))
+        .expect("spawner failed");
 }
