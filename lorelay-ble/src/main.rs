@@ -31,10 +31,10 @@ use core::mem;
 use defmt::{info, *};
 use embassy_executor::Spawner;
 use embassy_nrf::gpio::{AnyPin, Level, Output, OutputDrive, Pin};
-use embassy_nrf::saadc::{ChannelConfig, Saadc};
-use embassy_nrf::{bind_interrupts, interrupt, saadc, spim, peripherals};
 use embassy_nrf::interrupt::{Interrupt, InterruptExt};
-use embassy_sync::blocking_mutex::raw::{ThreadModeRawMutex};
+use embassy_nrf::saadc::{ChannelConfig, Saadc};
+use embassy_nrf::{bind_interrupts, interrupt, peripherals, saadc, spim};
+use embassy_sync::blocking_mutex::raw::ThreadModeRawMutex;
 use embassy_sync::mutex::Mutex;
 use embassy_time::{Duration, Timer};
 use futures::future::{select, Either};
@@ -228,12 +228,10 @@ async fn main(spawner: Spawner) {
                             warn!("invalid utf8");
                             "invalid utf8"
                         }
-                    }
-                    else {
+                    } else {
                         warn!("invalid utf8");
                         "invalid utf8"
                     };
-
 
                     custom_value = value[0] as i16;
                     unsafe {
