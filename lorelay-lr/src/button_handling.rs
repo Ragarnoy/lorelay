@@ -1,4 +1,4 @@
-use defmt::{debug, info};
+use defmt::{info};
 use embassy_stm32::exti::ExtiInput;
 use embassy_stm32::gpio::Input;
 use embassy_stm32::peripherals::{PA0, PA1, PC6};
@@ -37,7 +37,7 @@ pub async fn button_2_press(mut button_exti: ExtiButton2) {
 pub async fn button_3_press(mut button_exti: ExtiButton3) {
     loop {
         button_exti.wait_for_rising_edge().await;
-        debug!("Button 3 pressed");
+        info!("Button 3 pressed");
         BUTTON_PRESS_SIGNAL.signal(());
     }
 }
