@@ -36,5 +36,9 @@ git = "https://github.com/embassy-rs/embassy"
 [profile.dev]
 opt-level = "s"
 debug = true
+
+[profile.release]
+opt-level = "s"
+debug = true
 codegen-units = 1
 lto = true
