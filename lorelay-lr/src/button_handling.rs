@@ -1,4 +1,4 @@
-use defmt::{info};
+use defmt::info;
 use embassy_stm32::exti::ExtiInput;
 use embassy_stm32::gpio::Input;
 use embassy_stm32::peripherals::{PA0, PA1, PC6};
