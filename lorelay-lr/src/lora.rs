@@ -105,7 +105,9 @@ pub async fn rxtx_lora_messages(mut lora: LoraRadio) {
 
 fn create_message(rx_buffer: [u8; 100]) -> String<20> {
     let msg = core::str::from_utf8(&rx_buffer).unwrap();
-    let (hello, number_str) = core::str::from_utf8(&rx_buffer)
+    let (hello, number_str) = core::ffi::CStr::from_bytes_until_nul(msg.as_bytes())
+        .unwrap()
+        .to_str()
         .unwrap()
         .split_at(msg.find(' ').unwrap());
     let number: u32 = number_str.trim().parse().unwrap();

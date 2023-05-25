@@ -75,7 +75,7 @@ async fn main(spawner: Spawner) {
 
     let exti_1 = ExtiInput::new(button_1, p.EXTI0);
     let exti_2 = ExtiInput::new(button_2, p.EXTI1);
-    let exti_3 = ExtiInput::new(button_3, p.EXTI6); // does not work for some reason
+    let exti_3 = ExtiInput::new(button_3, p.EXTI6);
 
     spawner
         .spawn(led_handling::blue_led_handler(blue_led))
