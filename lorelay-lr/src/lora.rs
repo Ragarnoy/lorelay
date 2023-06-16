@@ -20,8 +20,75 @@ const OUTPUT_POWER: i32 = 20;
 
 const FIRST_MESSAGE: [u8; 8] = [b'h', b'e', b'l', b'l', b'o', b' ', b'0', b'\0'];
 
+pub struct Device {
+    lora: LoraRadio,
+    mdltn_params: ModulationParams,
+    rx_pkt_params: PacketParams,
+    tx_pkt_params: PacketParams,
+}
+
+impl Device {
+    pub async fn new(mut lora: LoraRadio) -> Self {
+        let mdltn_params = modulation_params(&mut lora).expect("Failed to create modulation params");
+
+        let mut tx_pkt_params =
+            create_tx_packet(&mut lora, &mdltn_params).expect("Failed to create TX packet params");
+
+        let rx_pkt_params =
+            create_rx_packet(&mut lora, &mdltn_params).expect("Failed to create RX packet params");
+
+        Device {
+            lora,
+            mdltn_params,
+            tx_pkt_params,
+            rx_pkt_params
+        }
+    }
+
+    pub async fn send(&mut self, message: &[u8]) -> Result<(), RadioError> {
+        match self.lora.prepare_for_tx(&self.mdltn_params, OUTPUT_POWER, false).await {
+            Ok(()) => {
+                debug!("Radio prepared for TX");
+            }
+            Err(err) => {
+                error!("Radio error = {}", err);
+                return Err(err);
+            }
+        };
+
+        Timer::after(Duration::from_secs(1)).await;
+
+        match self.lora.tx(&self.mdltn_params, &mut self.tx_pkt_params, message, 0xffffff).await {
+            Ok(()) => {
+                info!("Sending message: {}", core::str::from_utf8(message).unwrap());
+                LED_BLUE_BLINK_SIGNAL.signal(());
+            }
+            Err(err) => {
+                error!("Radio error = {}", err);
+                return Err(err);
+            }
+        };
+        Ok(())
+    }
+
+    pub async fn receive(&mut self) -> Result<[u8; RX_BUF_SIZE], RadioError>
+    {
+        let mut rx_buffer: [u8; RX_BUF_SIZE] = [0; RX_BUF_SIZE];
+
+        match self.lora.rx(&self.rx_pkt_params, &mut rx_buffer).await {
+            Err(err) => {
+                info!("rx unsuccessful = {}", err);
+                Err(err)
+            }
+            Ok((received_len, _rx_pkt_status)) => {
+                Ok(rx_buffer)
+            }
+        }
+    }
+}
+
 #[embassy_executor::task]
-pub async fn rxtx_lora_messages(mut lora: LoraRadio) {
+pub async fn idle_task(mut lora: LoraRadio) {
     let mut rx_buffer = [0u8; RX_BUF_SIZE];
 
     info!("Starting RX/TX");

@@ -99,6 +99,6 @@ async fn main(spawner: Spawner) {
         .spawn(button_handling::button_3_press(exti_3))
         .expect("spawner failed");
     spawner
-        .spawn(lora::rxtx_lora_messages(lora))
+        .spawn(lora::idle_task(lora))
         .expect("spawner failed");
 }
