@@ -13,14 +13,20 @@ type ExtiButton1 = ExtiInput<'static, PA0>;
 type ExtiButton2 = ExtiInput<'static, PA1>;
 type ExtiButton3 = ExtiInput<'static, PC6>;
 
-static BUTTON_PRESS_SIGNAL: Signal<CriticalSectionRawMutex, ()> = Signal::new();
+pub static BUTTON_PRESS_SIGNAL: Signal<CriticalSectionRawMutex, ButtonPress> = Signal::new();
+
+pub enum ButtonPress {
+    Button1,
+    Button2,
+    Button3,
+}
 
 #[embassy_executor::task]
 pub async fn button_1_press(mut button_exti: ExtiButton1) {
     loop {
         button_exti.wait_for_rising_edge().await;
         info!("Button 1 pressed");
-        BUTTON_PRESS_SIGNAL.signal(());
+        BUTTON_PRESS_SIGNAL.signal(ButtonPress::Button1);
     }
 }
 
@@ -29,7 +35,7 @@ pub async fn button_2_press(mut button_exti: ExtiButton2) {
     loop {
         button_exti.wait_for_rising_edge().await;
         info!("Button 2 pressed");
-        BUTTON_PRESS_SIGNAL.signal(());
+        BUTTON_PRESS_SIGNAL.signal(ButtonPress::Button2);
     }
 }
 
@@ -38,6 +44,6 @@ pub async fn button_3_press(mut button_exti: ExtiButton3) {
     loop {
         button_exti.wait_for_rising_edge().await;
         info!("Button 3 pressed");
-        BUTTON_PRESS_SIGNAL.signal(());
+        BUTTON_PRESS_SIGNAL.signal(ButtonPress::Button3);
     }
 }

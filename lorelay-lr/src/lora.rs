@@ -1,3 +1,6 @@
+pub mod message;
+pub mod neighbour;
+
 use crate::led_handling::{LED_BLUE_BLINK_SIGNAL, LED_GREEN_BLINK_SIGNAL, LED_RED_BLINK_SIGNAL};
 use crate::{SpiLora, Stm32wlIv};
 use core::fmt::Write;
@@ -10,7 +13,7 @@ use lora_phy::mod_params::{
 use lora_phy::sx1261_2::SX1261_2;
 use lora_phy::LoRa;
 
-type LoraRadio = LoRa<SX1261_2<SpiLora, Stm32wlIv>>;
+type Lora = LoRa<SX1261_2<SpiLora, Stm32wlIv>>;
 
 const LORA_FREQUENCY_IN_HZ: u32 = 433_220_000;
 
@@ -20,15 +23,15 @@ const OUTPUT_POWER: i32 = 20;
 
 const FIRST_MESSAGE: [u8; 8] = [b'h', b'e', b'l', b'l', b'o', b' ', b'0', b'\0'];
 
-pub struct Device {
-    lora: LoraRadio,
+pub struct LoraRadio {
+    lora: Lora,
     mdltn_params: ModulationParams,
     rx_pkt_params: PacketParams,
     tx_pkt_params: PacketParams,
 }
 
-impl Device {
-    pub async fn new(mut lora: LoraRadio) -> Self {
+impl LoraRadio {
+    pub async fn new(mut lora: Lora) -> Self {
         let mdltn_params = modulation_params(&mut lora).expect("Failed to create modulation params");
 
         let mut tx_pkt_params =
@@ -37,7 +40,7 @@ impl Device {
         let rx_pkt_params =
             create_rx_packet(&mut lora, &mdltn_params).expect("Failed to create RX packet params");
 
-        Device {
+        LoraRadio {
             lora,
             mdltn_params,
             tx_pkt_params,
@@ -88,7 +91,7 @@ impl Device {
 }
 
 #[embassy_executor::task]
-pub async fn idle_task(mut lora: LoraRadio) {
+pub async fn idle_task(mut lora: Lora) {
     let mut rx_buffer = [0u8; RX_BUF_SIZE];
 
     info!("Starting RX/TX");
@@ -184,7 +187,7 @@ fn create_message(rx_buffer: [u8; 100]) -> String<20> {
 }
 
 async fn prepare_rx(
-    lora: &mut LoraRadio,
+    lora: &mut Lora,
     mdltn_params: &ModulationParams,
     rx_pkt_params: &PacketParams,
 ) -> Result<(), RadioError> {
@@ -210,7 +213,7 @@ async fn prepare_rx(
 }
 
 async fn tx_buffer(
-    lora: &mut LoraRadio,
+    lora: &mut Lora,
     mdltn_params: &ModulationParams,
     tx_pkt_params: &mut PacketParams,
     buff: &[u8],
@@ -229,7 +232,7 @@ async fn tx_buffer(
 }
 
 async fn prepare_tx(
-    lora: &mut LoraRadio,
+    lora: &mut Lora,
     mdltn_params: &ModulationParams,
 ) -> Result<(), RadioError> {
     match lora.prepare_for_tx(mdltn_params, OUTPUT_POWER, false).await {
@@ -244,7 +247,7 @@ async fn prepare_tx(
     Ok(())
 }
 
-fn create_rx_packet(lora: &mut LoraRadio, mdltn_params: &ModulationParams) -> Option<PacketParams> {
+fn create_rx_packet(lora: &mut Lora, mdltn_params: &ModulationParams) -> Option<PacketParams> {
     Some(
         match lora.create_rx_packet_params(4, false, RX_BUF_SIZE as u8, true, false, mdltn_params) {
             Ok(pp) => pp,
@@ -256,7 +259,7 @@ fn create_rx_packet(lora: &mut LoraRadio, mdltn_params: &ModulationParams) -> Op
     )
 }
 
-fn create_tx_packet(lora: &mut LoraRadio, mdltn_params: &ModulationParams) -> Option<PacketParams> {
+fn create_tx_packet(lora: &mut Lora, mdltn_params: &ModulationParams) -> Option<PacketParams> {
     Some(
         match lora.create_tx_packet_params(4, false, true, false, mdltn_params) {
             Ok(pp) => pp,
@@ -268,7 +271,7 @@ fn create_tx_packet(lora: &mut LoraRadio, mdltn_params: &ModulationParams) -> Op
     )
 }
 
-fn modulation_params(lora: &mut LoraRadio) -> Option<ModulationParams> {
+fn modulation_params(lora: &mut Lora) -> Option<ModulationParams> {
     Some(
         match lora.create_modulation_params(
             SpreadingFactor::_10,

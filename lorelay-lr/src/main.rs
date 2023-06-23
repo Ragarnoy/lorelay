@@ -10,7 +10,7 @@ mod button_handling;
 mod led_handling;
 mod lora;
 
-use crate::button_handling::{Button1, Button3};
+use crate::button_handling::{Button1, Button3, BUTTON_PRESS_SIGNAL, ButtonPress};
 use button_handling::Button2;
 use defmt::info;
 use embassy_executor::Spawner;
@@ -27,6 +27,8 @@ use lora_phy::mod_params::*;
 use lora_phy::sx1261_2::SX1261_2;
 use lora_phy::LoRa;
 use {defmt_rtt as _, panic_probe as _};
+use crate::lora::LoraRadio;
+use crate::lora::neighbour::Neighbour;
 
 type SpiLora = Spi<'static, embassy_stm32::peripherals::SUBGHZSPI, DMA1_CH1, DMA1_CH2>;
 type Stm32wlIv = Stm32wlInterfaceVariant<Output<'static, AnyPin>>;
@@ -34,6 +36,31 @@ type Stm32wlIv = Stm32wlInterfaceVariant<Output<'static, AnyPin>>;
 bind_interrupts!(struct Irqs{
     SUBGHZ_RADIO => InterruptHandler;
 });
+
+pub struct Device {
+    uuid: u16,
+    pub lora: LoraRadio,
+    neighbours: heapless::Vec<Neighbour, 16>,
+}
+
+
+#[embassy_executor::task]
+pub async fn state_machine(mut device: Device) {
+
+    loop {
+        match BUTTON_PRESS_SIGNAL.wait().await {
+            ButtonPress::Button1 => {
+                todo!("Mode 1")
+            }
+            ButtonPress::Button2 => {
+                todo!("Mode 2")
+            }
+            ButtonPress::Button3 => {
+                todo!("Mode 3")
+            }
+        }
+    }
+}
 
 #[embassy_executor::main]
 async fn main(spawner: Spawner) {
@@ -50,7 +77,6 @@ async fn main(spawner: Spawner) {
     let iv = Stm32wlInterfaceVariant::new(Irqs, None, Some(ctrl2)).unwrap();
 
     let mut delay = Delay;
-    info!("Starting LoRa P3P send example");
 
     let lora = {
         match LoRa::new(
@@ -66,6 +92,11 @@ async fn main(spawner: Spawner) {
                 return;
             }
         }
+    };
+    let device = Device {
+        uuid: 1,
+        lora: LoraRadio::new(lora).await,
+        neighbours: heapless::Vec::new(),
     };
 
     let blue_led: BlueLed = Output::new(p.PB15, Level::Low, Speed::Low);
